@@ -98,12 +98,21 @@
 
   const slug = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "busca";
   const digits = (s) => String(s || "").replace(/\D/g, "");
+  const exportPhone = (s) => {
+    let d = digits(s).replace(/^00/, "");
+    if (d && !(d.startsWith("55") && d.length >= 12)) d = `55${d.replace(/^0+/, "")}`;
+    return d;
+  };
+  const whatsappDigits = (s) => {
+    let d = digits(s);
+    if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+    return d;
+  };
   const emailsOf = (r) => String(r.emails || "").split(/[\s,;]+/).filter((e) => e.includes("@"));
 
   // Brazilian mobile (DDD + 9xxxxxxxx) → wa.me link.
   function whatsapp(phone) {
-    let d = digits(phone);
-    if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+    const d = whatsappDigits(phone);
     return d.length === 11 && d[2] === "9" ? `https://wa.me/55${d}` : null;
   }
 
@@ -480,7 +489,7 @@
 
   const pressed = (s) => $(s).getAttribute("aria-pressed") === "true";
   function setPressed(s, v) { $(s).setAttribute("aria-pressed", v); $(s).classList.toggle("selected", v); }
-  ["#in-radius", "#dedupe", "#only-phone", "#sort-rating"].forEach((s) => $(s).addEventListener("click", () => {
+  ["#in-radius", "#dedupe", "#only-phone", "#only-whatsapp", "#sort-rating"].forEach((s) => $(s).addEventListener("click", () => {
     setPressed(s, !pressed(s));
     if (s === "#sort-rating") state.sort = pressed(s) ? { key: "review_rating", dir: -1 } : { key: null, dir: 1 };
     renderResults();
@@ -496,6 +505,7 @@
     let rows = state.rows.filter((r) =>
       (!area || !+r.latitude || distance(job.lat, job.lon, +r.latitude, +r.longitude) <= job.radius) &&
       (!cat || r.category === cat) && (!pressed("#only-phone") || r.phone) &&
+      (!pressed("#only-whatsapp") || whatsapp(r.phone)) &&
       (!q || [r.title, r.category, r.address, r.phone, r.website, r.emails].join(" ").toLowerCase().includes(q)));
     if (pressed("#dedupe")) {
       const seen = new Set();
@@ -641,7 +651,7 @@
   // ───────────────────────── export ─────────────────────────
   const EXPORT_HEAD = ["Nome", "Categoria", "Telefone", "WhatsApp", "E-mail", "Site", "Nota", "Avaliações", "Endereço", "Link Google Maps"];
   const exportRow = (r) => [
-    r.title, r.category, r.phone, whatsapp(r.phone) || "", emailsOf(r).join(", "), r.website,
+    r.title, r.category, exportPhone(r.phone), whatsapp(r.phone) || "", emailsOf(r).join(", "), r.website,
     +r.review_rating ? (+r.review_rating).toFixed(1).replace(".", ",") : "", r.review_count, r.address, r.link,
   ];
 

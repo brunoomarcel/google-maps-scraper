@@ -85,12 +85,21 @@
 
   const slug = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "busca";
   const digits = (s) => String(s || "").replace(/\D/g, "");
+  const exportPhone = (s) => {
+    let d = digits(s).replace(/^00/, "");
+    if (d && !(d.startsWith("55") && d.length >= 12)) d = `55${d.replace(/^0+/, "")}`;
+    return d;
+  };
+  const whatsappDigits = (s) => {
+    let d = digits(s);
+    if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+    return d;
+  };
   const emailsOf = (r) => String(r.emails || "").split(/[\s,;]+/).filter((e) => e.includes("@"));
 
   // Brazilian mobile (DDD + 9xxxxxxxx) → wa.me link.
   function whatsapp(phone) {
-    let d = digits(phone);
-    if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+    const d = whatsappDigits(phone);
     return d.length === 11 && d[2] === "9" ? `https://wa.me/55${d}` : null;
   }
 
@@ -508,10 +517,11 @@
     const q = $("#filter").value.trim().toLowerCase();
     const cat = $("#cat-filter").value;
     const area = $("#in-radius").checked && job.lat && job.radius;
-    const onlyPhone = $("#only-phone").checked, onlyEmail = $("#only-email").checked;
+    const onlyPhone = $("#only-phone").checked, onlyWhatsapp = $("#only-whatsapp").checked, onlyEmail = $("#only-email").checked;
     let rows = state.rows.filter((r) =>
       (!area || !+r.latitude || distance(job.lat, job.lon, +r.latitude, +r.longitude) <= job.radius) &&
       (!cat || r.category === cat) && (!onlyPhone || r.phone) && (!onlyEmail || emailsOf(r).length) &&
+      (!onlyWhatsapp || whatsapp(r.phone)) &&
       (!q || [r.title, r.category, r.address, r.phone, r.website, r.emails].join(" ").toLowerCase().includes(q)));
     if ($("#dedupe").checked) {
       const seen = new Set();
@@ -554,7 +564,7 @@
     plotRows(rows);
   }
 
-  ["#filter", "#cat-filter", "#sort", "#in-radius", "#dedupe", "#only-phone", "#only-email"].forEach((s) => $(s).addEventListener("input", renderResults));
+  ["#filter", "#cat-filter", "#sort", "#in-radius", "#dedupe", "#only-phone", "#only-whatsapp", "#only-email"].forEach((s) => $(s).addEventListener("input", renderResults));
   $("#results-table tbody").addEventListener("click", (e) => {
     if (e.target.closest("a")) return;
     const tr = e.target.closest("tr[data-i]");
@@ -567,7 +577,7 @@
   // ───────────────────────── export ─────────────────────────
   const EXPORT_HEAD = ["Nome", "Categoria", "Telefone", "WhatsApp", "E-mail", "Site", "Nota", "Avaliações", "Endereço", "Link Google Maps"];
   const exportRow = (r) => [
-    r.title, r.category, r.phone, whatsapp(r.phone) || "", emailsOf(r).join(", "), r.website,
+    r.title, r.category, exportPhone(r.phone), whatsapp(r.phone) || "", emailsOf(r).join(", "), r.website,
     +r.review_rating ? (+r.review_rating).toFixed(1).replace(".", ",") : "", r.review_count, r.address, r.link,
   ];
 
